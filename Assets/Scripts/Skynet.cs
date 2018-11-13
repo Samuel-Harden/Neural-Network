@@ -1,8 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
-public class Skynet : MonoBehaviour
+public class SkyNet : MonoBehaviour
 {
     [SerializeField] int population;
     [SerializeField] GameObject vehicleAIPrefab;
@@ -13,15 +14,22 @@ public class Skynet : MonoBehaviour
 
     private List<VehicleControl> vehicleAI;
 
+    [SerializeField] Transform objectContainer;
+
+    [SerializeField] Text genCounter;
+
     private int[] topology = { 3, 5, 4, 2 };
+
+    private int generation;
 
 	// Use this for initialization
 	void Start ()
     {
-        //neuralNetwork = GetComponent <NeuralNetwork>();
-        geneticAlgorithm = GetComponent<GeneticAlgorithm>();
+        generation = 0;
 
-        //neuralNetwork.InitializeNeuralNetwork(topology);
+        SetGenerationText();
+
+        geneticAlgorithm = GetComponent<GeneticAlgorithm>();
 
         InitializePopulation();
 	}
@@ -50,9 +58,14 @@ public class Skynet : MonoBehaviour
         else
         {
             // Time to generate new Population!
-            geneticAlgorithm.RegeratePopulation(ref vehicleAI, topology, vehicleAIPrefab, spawnPoint.position);
+            geneticAlgorithm.RegeratePopulation(ref vehicleAI, topology,
+                vehicleAIPrefab, spawnPoint.position, objectContainer);
 
-            Debug.Log("Time to Repopulate!");
+            //Debug.Log("Time to Repopulate!");
+
+            generation++;
+
+            SetGenerationText();
         }
 	}
 
@@ -107,10 +120,18 @@ public class Skynet : MonoBehaviour
 
             vehicle.GetComponent<VehicleControl>().InitializeVehicle(topology);
 
+            vehicle.transform.parent = objectContainer;
+
             // Set Weights to start
             MathHelper.SetRandomWeights(vehicle.GetComponent<VehicleControl>().neurons);
 
             vehicleAI.Add(vehicle.GetComponent<VehicleControl>());
         }
+    }
+
+
+    void SetGenerationText()
+    {
+         genCounter.text = "Generation: " + generation.ToString();
     }
 }

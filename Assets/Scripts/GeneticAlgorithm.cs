@@ -5,7 +5,7 @@ using UnityEngine;
 
 public class GeneticAlgorithm : MonoBehaviour
 {
-    public void RegeratePopulation(ref List<VehicleControl> _population, int[] _topology, GameObject _vehiclePrefab, Vector3 _spawnPos)
+    public void RegeratePopulation(ref List<VehicleControl> _population, int[] _topology, GameObject _vehiclePrefab, Vector3 _spawnPos, Transform _objectContainer)
     {
         List<VehicleControl> newGeneration = new List<VehicleControl>();
 
@@ -33,6 +33,8 @@ public class GeneticAlgorithm : MonoBehaviour
                     }
                 }
             }
+
+            vehicle.transform.parent = _objectContainer;
 
             newGeneration.Add(vehicle.GetComponent<VehicleControl>());
         }
