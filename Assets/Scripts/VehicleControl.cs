@@ -3,72 +3,45 @@ using UnityEngine;
 
 public class VehicleControl : MonoBehaviour
 {
-    public float fitness;
+    [SerializeField] float steerAngle = 35.0f;
+    [SerializeField] float maxTorque = 35.0f;
+    [SerializeField] float maxBreakTorque = 10.0f;
+    [SerializeField] int sensorDistance;
 
-    public float steerAngle = 35.0f;
-    public float maxTorque = 35.0f;
-
-    public WheelCollider wheelFL;
-    public WheelCollider wheelFR;
-
-    public List<float> sensors;
-
-    public float left;
-    public float right;
-    public float forward;
-
-    public bool active;
-
-    public float angle;
-
-    [SerializeField] string trackLayer;
-    [SerializeField] LayerMask checkLayer;
+    [SerializeField] WheelCollider wheelFL;
+    [SerializeField] WheelCollider wheelFR;
+    [SerializeField] MeshRenderer vehicleBody;
 
     [SerializeField] Transform sensorForward;
     [SerializeField] Transform sensorLeft;
     [SerializeField] Transform sensorRight;
 
-    [SerializeField] int sensorDistance;
+    [SerializeField] string trackLayer;
+    [SerializeField] LayerMask checkLayer;
 
-    [SerializeField] MeshRenderer vehicleBody;
+    [SerializeField] List<float> sensorValues;
 
+    private Brain brain;
 
-    // Brain Data
-    public List<List<Neuron>> neurons;
+    private float left;
+    private float right;
+    private float forward;
+    private bool active;
+    private float angle;
+
 
     public void InitializeVehicle(int[] _topology)
     {
         vehicleBody.material.color = Random.ColorHSV(0f, 1f, 1f, 1f, 0.5f, 1f);
 
-        // Neurons get stored into each layer
-        neurons = new List<List<Neuron>>();
+        brain = new Brain();
 
-        sensors = new List<float>();
+        brain.Initialize(_topology);
 
-        for (int i = 0; i < _topology.Length; i++)
-        {
-            neurons.Add(new List<Neuron>());
-
-            for (int j = 0; j < _topology[i]; j++)
-            {
-                if (i != _topology.Length - 1)
-                {
-                    Neuron neuron = new Neuron(_topology[i + 1]);
-                    neurons[i].Add(neuron);
-                }
-
-                else
-                {
-                    Neuron neuron = new Neuron(0);
-                    neurons[i].Add(neuron);
-                }
-            }
-        }
+        sensorValues = new List<float>();
 
         for (int i = 0; i < _topology[0]; i++)
-        {
-            sensors.Add(0);
-        }
+            sensorValues.Add(0);
     }
 
 
@@ -77,14 +50,13 @@ public class VehicleControl : MonoBehaviour
         active = true;
     }
 
+
     public void UpdateNN()
     {
         UpdateSensors();
 
-        for (int i = 0; i < sensors.Count; i++)
-        {
-            neurons[0][i].value = sensors[i];
-        }
+        for (int i = 0; i < sensorValues.Count; i++)
+            brain.Neuron(0, i).value = sensorValues[i];
     }
 
 
@@ -94,9 +66,9 @@ public class VehicleControl : MonoBehaviour
         UpdateSensor(sensorRight, ref right);
         UpdateSensor(sensorForward, ref forward);
 
-        sensors[0] = left;
-        sensors[1] = right;
-        sensors[2] = forward;
+        sensorValues[0] = left;
+        sensorValues[1] = right;
+        sensorValues[2] = forward;
     }
 
 
@@ -125,19 +97,19 @@ public class VehicleControl : MonoBehaviour
         if (active)
         {
             ApplySteer();
-            ApplyForce();
+            ApplyTorque();
+            //ApplyBrakeTorque();
 
-            if (fitness < transform.position.z)
-                fitness = transform.position.z;
+            if (brain.Fitness() < transform.position.z)
+                brain.SetFitness(transform.position.z);
         }
     }
 
 
     private void ApplySteer()
     {
-        angle = steerAngle * (float)neurons[neurons.Count - 1][0].value;
+        angle = steerAngle * (float)brain.Neurons()[brain.Neurons().Count - 1][0].value;
 
-        //if ((float)neurons[neurons.Count - 1][0].value >= 0.5f)
         angle -= (steerAngle / 2);
 
         wheelFL.steerAngle = angle;
@@ -145,12 +117,32 @@ public class VehicleControl : MonoBehaviour
     }
 
 
-    private void ApplyForce()
+    private void ApplyTorque()
     {
-        float torque = maxTorque * (float)neurons[neurons.Count - 1][1].value;
+        float torque = maxTorque * (float)brain.Neurons()[brain.Neurons().Count - 1][1].value;
 
-        wheelFL.motorTorque = torque;
-        wheelFR.motorTorque = torque;
+        // If value is greater that 0.25 lets apply some power!
+        //if ((float)brain.Neurons()[brain.Neurons().Count - 1][1].value > 0.25f)
+        //{
+            wheelFL.motorTorque = torque;
+            wheelFR.motorTorque = torque;
+            return;
+        //}
+
+        // if its less we should use the brakes!
+        //torque = maxBreakTorque * (float)brain.Neurons()[brain.Neurons().Count - 1][1].value;
+
+        //wheelFL.brakeTorque = torque;
+        //wheelFR.brakeTorque = torque;
+    }
+
+
+    private void ApplyBrakeTorque()
+    {
+        float torque = maxBreakTorque * (float)brain.Neurons()[brain.Neurons().Count - 1][2].value;
+
+        wheelFL.brakeTorque = torque;
+        wheelFR.brakeTorque = torque;
     }
 
 
@@ -163,5 +155,23 @@ public class VehicleControl : MonoBehaviour
             wheelFL.motorTorque = 0.0f;
             wheelFR.motorTorque = 0.0f;
         }
+    }
+
+
+    public Brain GetBrain()
+    {
+        return brain;
+    }
+
+
+    public bool IsActive()
+    {
+        return active;
+    }
+
+
+    public void SetActive(bool _active)
+    {
+        active = _active;
     }
 }

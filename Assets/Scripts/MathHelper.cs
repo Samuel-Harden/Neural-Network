@@ -1,42 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
-using UnityEngine;
+
 
 public static class MathHelper
 {
+    // NN Activation Function!
     public static double SigmoidFunction(double _value)
     {
-        if (_value > 10)
-            return 1.0;
+        if (_value > 10) return 1.0;
 
-        else if (_value < -10)
-            return 0.0;
+        else if (_value < -10) return 0.0;
 
-        else
-            return 1.0 / (1.0 + Math.Exp(-_value));
+        else return 1.0 / (1.0 + Math.Exp(-_value));
     }
 
 
-    public static float TanHFunction(float _value)
-    {
-        if (_value > 10)
-            return 1.0f;
-
-        if (_value < -10)
-            return -1.0f;
-
-        else
-            return (float)Math.Tanh(_value);
-    }
-
-
-    public static float SoftSigmoidFunction(float _value)
-    {
-        return _value / (1 + Math.Abs(_value));
-    }
-
-
-    public static void SetRandomWeights(List<List<Neuron>> _neurons)
+    public static void SetRandomWeights(List<List<Neuron>> _neurons, float _min, float _max)
     {
         for (int i = 0; i < _neurons.Count - 1; i++)
         {
@@ -44,7 +23,7 @@ public static class MathHelper
             {
                 for (int k = 0; k < _neurons[i][j].weightCount; k++)
                 {
-                    _neurons[i][j].weights.Add(UnityEngine.Random.Range(-10.0f, 10.0f));
+                    _neurons[i][j].weights.Add(UnityEngine.Random.Range(_min, _max));
                 }
             }
         }

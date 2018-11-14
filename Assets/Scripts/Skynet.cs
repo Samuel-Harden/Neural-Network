@@ -6,18 +6,20 @@ using UnityEngine.UI;
 public class SkyNet : MonoBehaviour
 {
     [SerializeField] int population;
-    [SerializeField] GameObject vehicleAIPrefab;
+    [SerializeField] float initialWeightMin;
+    [SerializeField] float initialWeightMax;
+
+    [SerializeField] GameObject vehiclePrefab;
     [SerializeField] Transform spawnPoint;
-
-    //private NeuralNetwork neuralNetwork;
-    private GeneticAlgorithm geneticAlgorithm;
-
-    private List<VehicleControl> vehicleAI;
-
     [SerializeField] Transform objectContainer;
-
     [SerializeField] Text genCounter;
 
+    private GeneticAlgorithm geneticAlgorithm;
+    private List<VehicleControl> vehicles;
+
+    // The Layout of the Neural Network
+    // layer 0 corresponds to the number of sensors
+    // The last layer corresponds a vehicles steer and torque
     private int[] topology = { 3, 5, 4, 2 };
 
     private int generation;
@@ -48,43 +50,33 @@ public class SkyNet : MonoBehaviour
             // Set Values for input nodes at begining of each cycle
             SetInputs();
 
-            foreach (VehicleControl vehicle in vehicleAI)
-                NeuralNetwork.ProcessNeuralNetwork(vehicle);
+            foreach (VehicleControl vehicle in vehicles)
+                NeuralNetwork.ProcessNeuralNetwork(vehicle.GetBrain());
 
             // pass Output Nodes back to Vehicle
             UpdateVehicles();
         }
 
         else
-        {
-            // Time to generate new Population!
-            geneticAlgorithm.RegeratePopulation(ref vehicleAI, topology,
-                vehicleAIPrefab, spawnPoint.position, objectContainer);
-
-            //Debug.Log("Time to Repopulate!");
-
-            generation++;
-
-            SetGenerationText();
-        }
+            NewGeneration();
 	}
 
 
     // Loop through each vehicle, update the input values for the NN
     void SetInputs()
     {
-        for (int i = 0; i < vehicleAI.Count; i++)
+        for (int i = 0; i < vehicles.Count; i++)
         {
-            vehicleAI[i].UpdateNN();
+            vehicles[i].UpdateNN();
         }
     }
 
 
     void UpdateVehicles()
     {
-        for (int i = 0; i < vehicleAI.Count; i++)
+        for (int i = 0; i < vehicles.Count; i++)
         {
-            vehicleAI[i].UpdateVehicle();
+            vehicles[i].UpdateVehicle();
         }
     }
 
@@ -92,9 +84,9 @@ public class SkyNet : MonoBehaviour
     bool CheckPopActive()
     {
         // Loop through to see if any vehicle is active
-        for (int i = 0; i < vehicleAI.Count; i++)
+        for (int i = 0; i < vehicles.Count; i++)
         {
-            if (vehicleAI[i].active)
+            if (vehicles[i].IsActive())
                 return true;
         }
 
@@ -105,27 +97,69 @@ public class SkyNet : MonoBehaviour
 
     public void ForceNextGeneration()
     {
-        foreach (VehicleControl vehicle in vehicleAI)
-            vehicle.active = false;
+        foreach (VehicleControl brain in vehicles)
+            brain.SetActive(false);
+    }
+
+
+    private void NewGeneration()
+    {
+        // Abstract brains from current generation
+        List<Brain> currentPopBrains = new List<Brain>();
+        List<Brain> newPopBrains = new List<Brain>();
+
+        for (int i = 0; i < vehicles.Count; i++)
+        {
+            // Add brains to lists
+            currentPopBrains.Add(vehicles[i].GetBrain());
+
+            Brain brain = new Brain();
+
+            brain.Initialize(topology);
+
+            newPopBrains.Add(brain);
+        }
+
+        // Time to generate new Population!
+        geneticAlgorithm.RegeratePopulation(ref currentPopBrains, ref newPopBrains);
+
+        // replace old Brains with new brains
+
+        for (int j = 0; j < vehicles.Count; j++)
+        {
+            vehicles[j].GetBrain().UpdateBrain(newPopBrains[j]);
+
+            vehicles[j].transform.position = spawnPoint.position;
+
+            vehicles[j].transform.rotation = Quaternion.identity;
+
+            vehicles[j].SetActive(true);
+        }
+
+        generation++;
+
+        SetGenerationText();
     }
 
 
     private void InitializePopulation()
     {
-        vehicleAI = new List<VehicleControl>();
+        vehicles = new List<VehicleControl>();
 
         for (int i = 0; i < population; i++)
         {
-            GameObject vehicle = Instantiate(vehicleAIPrefab, spawnPoint.position, Quaternion.identity);
+            GameObject vehicle = Instantiate(vehiclePrefab, spawnPoint.position,
+                Quaternion.identity);
 
             vehicle.GetComponent<VehicleControl>().InitializeVehicle(topology);
 
             vehicle.transform.parent = objectContainer;
 
             // Set Weights to start
-            MathHelper.SetRandomWeights(vehicle.GetComponent<VehicleControl>().neurons);
+            MathHelper.SetRandomWeights(vehicle.GetComponent<VehicleControl>()
+                .GetBrain().Neurons(), initialWeightMin, initialWeightMax);
 
-            vehicleAI.Add(vehicle.GetComponent<VehicleControl>());
+            vehicles.Add(vehicle.GetComponent<VehicleControl>());
         }
     }
 
